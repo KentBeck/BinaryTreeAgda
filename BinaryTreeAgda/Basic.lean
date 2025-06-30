@@ -1,1 +1,3 @@
-def hello := "world"
+import Mathlib.Topology.Basic
+
+#check TopologicalSpace
