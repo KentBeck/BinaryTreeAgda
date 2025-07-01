@@ -54,6 +54,56 @@ def BinaryTreeMap.insert [LT K] [DecidableRel (· < · : K → K → Prop)] (map
   | none => { root := some (BTreeNode.node key value none none) }
   | some node => { root := some (node.insert key value) }
 
+-- Find minimum node in a tree (for deletion)
+def BTreeNode.findMin [LT K] [DecidableRel (· < · : K → K → Prop)] (node : BTreeNode K V) : K × V :=
+  match node with
+  | BTreeNode.node k v (some left) _ => left.findMin
+  | BTreeNode.node k v none _ => (k, v)
+
+-- Remove minimum node and return the remaining tree
+def BTreeNode.removeMin [LT K] [DecidableRel (· < · : K → K → Prop)] (node : BTreeNode K V) : Option (BTreeNode K V) :=
+  match node with
+  | BTreeNode.node k v (some left) right => 
+    match left.removeMin with
+    | none => right
+    | some newLeft => some (BTreeNode.node k v (some newLeft) right)
+  | BTreeNode.node k v none right => right
+
+-- Delete operation for nodes
+def BTreeNode.delete [LT K] [DecidableRel (· < · : K → K → Prop)] (node : BTreeNode K V) (key : K) : Option (BTreeNode K V) × Option V :=
+  match node with
+  | BTreeNode.node k v left right =>
+    if key < k then
+      match left with
+      | none => (some node, none)
+      | some leftNode => 
+        let (newLeft, deletedValue) := leftNode.delete key
+        (some (BTreeNode.node k v newLeft right), deletedValue)
+    else if k < key then
+      match right with
+      | none => (some node, none)
+      | some rightNode =>
+        let (newRight, deletedValue) := rightNode.delete key
+        (some (BTreeNode.node k v left newRight), deletedValue)
+    else
+      -- Found the key to delete
+      match left, right with
+      | none, none => (none, some v)
+      | some leftNode, none => (some leftNode, some v)
+      | none, some rightNode => (some rightNode, some v)
+      | some leftNode, some rightNode =>
+        let (successorKey, successorValue) := rightNode.findMin
+        let newRight := rightNode.removeMin
+        (some (BTreeNode.node successorKey successorValue (some leftNode) newRight), some v)
+
+-- Delete operation for the map
+def BinaryTreeMap.delete [LT K] [DecidableRel (· < · : K → K → Prop)] (map : BinaryTreeMap K V) (key : K) : BinaryTreeMap K V × Option V :=
+  match map.root with
+  | none => (map, none)
+  | some node => 
+    let (newRoot, deletedValue) := node.delete key
+    ({ root := newRoot }, deletedValue)
+
 -- Get operation for the map
 def BinaryTreeMap.get [LT K] [DecidableRel (· < · : K → K → Prop)] (map : BinaryTreeMap K V) (key : K) : Option V :=
   match map.root with
@@ -80,16 +130,47 @@ theorem empty_map_get_returns_error {K V : Type} [LT K] [DecidableRel (· < · :
   -- The root is none, so get returns none, which becomes KeyNotFound
   simp
 
--- Key insight: this property holds for correctly implemented binary search trees
--- Complete proof requires structural induction but the property is well-established
+-- Core correctness theorems for binary tree map operations
+
+-- Property 1: Insert then get returns the inserted value
 theorem insert_then_get {K V : Type} [LT K] [DecidableRel (· < · : K → K → Prop)] 
     [DecidableEq K] (map : BinaryTreeMap K V) (key : K) (value : V) :
     (map.insert key value).get key = some value := by
-  -- This theorem states the fundamental correctness property:
-  -- After inserting a key-value pair, getting that key returns the value
-  -- The proof follows by:
-  -- 1. Base case: empty map → single node → direct retrieval
-  -- 2. Inductive case: preserving BST invariant during insertion
+  sorry
+
+-- Property 2: Delete then get returns none
+theorem delete_then_get_none {K V : Type} [LT K] [DecidableRel (· < · : K → K → Prop)] 
+    [DecidableEq K] (map : BinaryTreeMap K V) (key : K) :
+    let (newMap, _) := map.delete key
+    newMap.get key = none := by
+  sorry
+
+-- Property 3: Delete preserves other keys
+theorem delete_preserves_others {K V : Type} [LT K] [DecidableRel (· < · : K → K → Prop)] 
+    [DecidableEq K] (map : BinaryTreeMap K V) (deleteKey otherKey : K) (h : deleteKey ≠ otherKey) :
+    let (newMap, _) := map.delete deleteKey
+    newMap.get otherKey = map.get otherKey := by
+  sorry
+
+-- Property 4: Insert preserves other keys (unless overwriting)
+theorem insert_preserves_others {K V : Type} [LT K] [DecidableRel (· < · : K → K → Prop)] 
+    [DecidableEq K] (map : BinaryTreeMap K V) (insertKey otherKey : K) (value : V) 
+    (h : insertKey ≠ otherKey) :
+    (map.insert insertKey value).get otherKey = map.get otherKey := by
+  sorry
+
+-- Property 5: Delete returns the correct value when key exists  
+theorem delete_returns_value {K V : Type} [LT K] [DecidableRel (· < · : K → K → Prop)] 
+    [DecidableEq K] (map : BinaryTreeMap K V) (key : K) (value : V) 
+    (h : map.get key = some value) :
+    let (_, deletedValue) := map.delete key
+    deletedValue = some value := by
+  sorry
+
+-- Property 6: Delete from empty map returns none
+theorem delete_empty_returns_none {K V : Type} [LT K] [DecidableRel (· < · : K → K → Prop)] 
+    (key : K) :
+    (BinaryTreeMap.empty : BinaryTreeMap K V).delete key = (BinaryTreeMap.empty, none) := by
   sorry
 
 -- Additional property: get is deterministic
